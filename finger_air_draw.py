@@ -91,8 +91,8 @@ def color_calibration(calibration_frame):
             l_s = round(s)
             l_h = round(h)
 
-    skinHigher = numpy.array([round(g_h)+50, round(g_s)+50, 255])
-    skinLower = numpy.array([round(l_h)-10, round(l_s)-10, round(l_v)-20])
+    skinHigher = numpy.array([round(g_h)+50, round(g_s)+100, 255])
+    skinLower = numpy.array([round(l_h)-20, round(l_s)-30, round(l_v)-80])
     print(skinLower)
     print("\n\n", skinHigher)
 
@@ -122,28 +122,65 @@ while True:
 
     if color_configured == 1:
 
-        mask = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        [lin,col,pln] = numpy.shape(frame)
+        hand_frame = frame[0:480,round(col/2):col,0:3]
+        mask = cv.cvtColor(hand_frame, cv.COLOR_BGR2HSV)
 
         mask = cv.inRange(mask, skinLower, skinHigher)
 
-        # mask = cv.morphologyEx(mask,cv.MORPH_OPEN,numpy.ones((3,3),dtype=numpy.uint8),iterations=2)
-        mask = cv.dilate(mask, numpy.ones(
-            (3, 3), dtype=numpy.uint8), iterations=2)
+        mask = cv.morphologyEx(mask,cv.MORPH_DILATE,numpy.ones((3,3),dtype=numpy.uint8),iterations=4)
+        mask = cv.morphologyEx(mask,cv.MORPH_ERODE,numpy.ones((3,3),dtype=numpy.uint8),iterations=2)
 
         medianFilter = cv.medianBlur(mask, 11)
         gaussian = cv.GaussianBlur(mask, (5, 5), 0)
 
-        edges = cv.Canny(medianFilter, 100, 150)
 
-        contours, hierarchy = cv.findContours(
-            edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        
 
+        contours, hierarchy = cv.findContours(medianFilter, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+         
+        cv.drawContours(medianFilter, contours, -1, 255, -1)
         if contours != []:
-            largest = max(contours, key=cv.contourArea)
-            cv.drawContours(frame, largest, 0, (80, 255, 255), 3)
+            # Detetar qual a maior àrea
+            largest = 0
+            max_area = 0
+            for contour in contours:
+                area = cv.contourArea(contour)
+                if (area>max_area):
+                    max_area = area
+                    largest = contour
+
+            centroid =  centroid(largest)
+            #approx the contour a little
+            epsilon = 0.0005*cv.arcLength(largest,True)
+            approx= cv.approxPolyDP(largest,epsilon,True)
+
+            hull= cv.convexHull(largest,returnPoints=True)
+             #define area of hull and area of hand
+            areahull = cv.contourArea(hull)
+            areacnt = cv.contourArea(largest)
+
+        #find the percentage of area not covered by hand in convex hull
+            arearatio=((areahull-areacnt)/areacnt)*100
+
+        #find the defects in convex hull with respect to hand
+            hull = cv.convexHull(approx, returnPoints=False)
+            defects = cv.convexityDefects(approx, hull)
+
+            hull= cv.convexHull(largest,returnPoints=False)
+            draw_hull= cv.convexHull(largest)
+            cv.drawContours(frame[0:480,round(col/2):col,0:3], contours,0,(0,255,0),2)
+            #Obter o ponto mais longe do centro
+            for defect in defects:
+                print('defeito ',largest[defect[0][2]][0])
+                cv.circle(frame[0:480,round(col/2):col,0:3],largest[defect[0][2]][0],10,(255,255,255),3)
+                
+                    
+                    
+        
+            
 
         cv.imshow("Mask", mask)
-        cv.imshow("edges", edges)
         cv.imshow("median", medianFilter)
 
     # Se durante o periodo de configuração a tecla Ctrl for pressionada
