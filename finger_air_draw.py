@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy
 from collections import deque
+from time import sleep
 
 
 # Carregar o video da camêra principal
@@ -28,27 +29,38 @@ rindex = 0
 yindex = 0
 # Vetor com as cores a utilizar
 # preto - azul - verde - vermelho - amarelo
-cores = [(0,0,0),(255,0,0),(0,255,0),(0,0,255),(0,255,255)]
+cores = [(0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)]
 cor_atual = 0
+# variável para diferenciar os desenhos
+startDrawing = 0
+stopDrawing = 0
 
-#Tela branca
-tela = numpy.zeros((480,320,3))+255
-tela = cv.rectangle(tela, (10,1), (52,50), (0,0,0), 2)
-tela = cv.rectangle(tela, (62,1), (104,50), cores[0], -1)
-tela = cv.rectangle(tela, (114,1), (156,50), cores[1], -1)
-tela = cv.rectangle(tela, (166,1), (208,50), cores[2], -1)
-tela = cv.rectangle(tela, (218,1), (260,50), cores[3], -1)
-tela = cv.rectangle(tela, (270,1), (312,50), cores[4], -1)
-cv.putText(tela, "CL", (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv.LINE_AA)
-cv.putText(tela, "0", (25, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv.LINE_AA)
-cv.putText(tela, "1", (77, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-cv.putText(tela, "2", (129, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-cv.putText(tela, "3", (181, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-cv.putText(tela, "4", (233, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (150,150,150), 2, cv.LINE_AA)
-cv.putText(tela, "5", (285, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (150,150,150), 2, cv.LINE_AA)
-
-
-
+# Tela branca
+tela = numpy.zeros((480, 320, 3))+255
+tela = cv.rectangle(tela, (10, 1), (52, 50), (0, 0, 0), 2)
+tela = cv.rectangle(tela, (62, 1), (104, 50), cores[0], -1)
+tela = cv.rectangle(tela, (114, 1), (156, 50), cores[1], -1)
+tela = cv.rectangle(tela, (166, 1), (208, 50), cores[2], -1)
+tela = cv.rectangle(tela, (218, 1), (260, 50), cores[3], -1)
+tela = cv.rectangle(tela, (270, 1), (312, 50), cores[4], -1)
+cv.putText(tela, "CL", (20, 20), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (0, 0, 0), 2, cv.LINE_AA)
+cv.putText(tela, "0", (25, 40), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (0, 0, 0), 2, cv.LINE_AA)
+cv.putText(tela, "1", (77, 30), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (255, 255, 255), 2, cv.LINE_AA)
+cv.putText(tela, "2", (129, 30), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (255, 255, 255), 2, cv.LINE_AA)
+cv.putText(tela, "3", (181, 30), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (255, 255, 255), 2, cv.LINE_AA)
+cv.putText(tela, "4", (233, 30), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (255, 255, 255), 2, cv.LINE_AA)
+cv.putText(tela, "5", (285, 30), cv.FONT_HERSHEY_SIMPLEX,
+           0.5, (255, 255, 255), 2, cv.LINE_AA)
+cv.putText(tela, "Drawing", (110, 460), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 0, 0), 2, cv.LINE_AA)
+cv.putText(tela, "OFF", (180, 460), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 0, 255), 2, cv.LINE_AA)
 
 
 # Função para desenhar os circulos de demonstração da área de aquisição de cor para o histograma
@@ -132,30 +144,32 @@ def color_calibration(calibration_frame):
 def doNothing(x):
     pass
 
+
 def getPoint(contour):
-    #Obter as linhas para descobrir a mais alta
+    # Obter as linhas para descobrir a mais alta
     lines = []
     points = []
     index = 0
     for c in contour:
         lines.append(c[0][1])
-    
+
     highest = min(lines)
-    while(index<len(lines)):
+    while(index < len(lines)):
         try:
-            new_find = lines.index(highest,index)
+            new_find = lines.index(highest, index)
             points.append(new_find)
             index = new_find+1
         except ValueError as e:
-            break        
+            break
 
-    #Obter as colunas e fazer a média entre todos
+    # Obter as colunas e fazer a média entre todos
     col = 0
     for point in points:
         col += contour[point][0][0]
     col = round(col/len(points))
 
-    return [highest,col]
+    return [highest, col]
+
 
 def savePoint(point):
     if cor_atual == 0:
@@ -169,25 +183,69 @@ def savePoint(point):
     elif cor_atual == 4:
         pontos_amarelo[yindex].appendleft(point)
 
-def draw(tela):
-    points = [pontos_preto,pontos_azul,pontos_verde,pontos_vermelho,pontos_amarelo]
-    for color in range(len(points)):
-        for deque in range(len(points[color])):
-            for point in range(len(points[color][deque])):
-                if points[color][deque][point - 1] is None or points[color][deque][point] is None:
-                    continue
-                cv.line(tela, points[color][deque][point - 1], points[color][deque][point], cores[cor_atual], 2)
-                print(points[color][deque][point])
-            
 
 
+
+
+def limpar(tela,drawing = 'off'):
+    tela = numpy.zeros((480, 320, 3))+255
+    tela = cv.rectangle(tela, (10, 1), (52, 50), (0, 0, 0), 2)
+    tela = cv.rectangle(tela, (62, 1), (104, 50), cores[0], -1)
+    tela = cv.rectangle(
+        tela, (114, 1), (156, 50), cores[1], -1)
+    tela = cv.rectangle(
+        tela, (166, 1), (208, 50), cores[2], -1)
+    tela = cv.rectangle(
+        tela, (218, 1), (260, 50), cores[3], -1)
+    tela = cv.rectangle(
+        tela, (270, 1), (312, 50), cores[4], -1)
+    cv.putText(
+        tela, "CL", (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv.LINE_AA)
+    cv.putText(tela, "0", (25, 40), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 0, 0), 2, cv.LINE_AA)
+    cv.putText(tela, "1", (77, 30), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (255, 255, 255), 2, cv.LINE_AA)
+    cv.putText(tela, "2", (129, 30), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (255, 255, 255), 2, cv.LINE_AA)
+    cv.putText(tela, "3", (181, 30), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (255, 255, 255), 2, cv.LINE_AA)
+    cv.putText(tela, "4", (233, 30), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (255, 255, 255), 2, cv.LINE_AA)
+    cv.putText(tela, "5", (285, 30), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (255, 255, 255), 2, cv.LINE_AA)
+    cv.putText(tela, "Drawing", (110, 460), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 0, 0), 2, cv.LINE_AA)
+    if drawing == 'off':
+        cv.putText(tela, "OFF", (180, 460), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 0, 255), 2, cv.LINE_AA)
+    else:
+        cv.putText(tela, "ON", (180, 460), cv.FONT_HERSHEY_SIMPLEX,
+               0.5, (0, 255, 0), 2, cv.LINE_AA)
+    return tela
     
+
+def draw(tela,isDrawing):
+
+    tela = limpar(tela,isDrawing)
+
+    points = [pontos_preto, pontos_azul,
+              pontos_verde, pontos_vermelho, pontos_amarelo]
+    for i in range(len(points)):
+        for j in range(len(points[i])):
+            for k in range(1, len(points[i][j])):
+                if points[i][j][k - 1] is None or points[i][j][k] is None:
+                    continue
+                tela = cv.line(tela, points[i][j][k - 1],
+                        points[i][j][k], cores[i], 2)
+    
+    return tela
 
 
 if not webcam.isOpened:
     print('--(!)Error opening video capture')
     exit(0)
 while True:
+
     ret, frame = webcam.read()
     if frame is None:
         print('--(!) No captured frame -- Break!')
@@ -198,57 +256,85 @@ while True:
 
     frame_circle = frame
 
+
     if color_configured == 1:
 
-        [lin,col,pln] = numpy.shape(frame)
-        hand_frame = frame[0:480,round(col/2):col,0:3]
+        [lin, col, pln] = numpy.shape(frame)
+        hand_frame = frame[0:480, round(col/2):col, 0:3]
         mask = cv.cvtColor(hand_frame, cv.COLOR_BGR2HSV)
 
         mask = cv.inRange(mask, skinLower, skinHigher)
 
-        mask = cv.morphologyEx(mask,cv.MORPH_DILATE,numpy.ones((3,3),dtype=numpy.uint8),iterations=4)
-        mask = cv.morphologyEx(mask,cv.MORPH_ERODE,numpy.ones((3,3),dtype=numpy.uint8),iterations=2)
+        mask = cv.morphologyEx(mask, cv.MORPH_DILATE, numpy.ones(
+            (3, 3), dtype=numpy.uint8), iterations=4)
+        mask = cv.morphologyEx(mask, cv.MORPH_ERODE, numpy.ones(
+            (3, 3), dtype=numpy.uint8), iterations=2)
 
         medianFilter = cv.medianBlur(mask, 11)
         gaussian = cv.GaussianBlur(mask, (5, 5), 0)
 
-        cv.imshow("media",medianFilter)
-        
+        contours, hierarchy = cv.findContours(
+            medianFilter, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-        contours, hierarchy = cv.findContours(medianFilter, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-         
-        
         if contours != []:
             # Detetar qual a maior àrea
             largest = 0
             max_area = 0
             for contour in contours:
                 area = cv.contourArea(contour)
-                if (area>max_area):
+                if (area > max_area):
                     max_area = area
                     largest = contour
 
-            column,line = getPoint(largest)
+            column, line = getPoint(largest)
 
-            cv.circle(frame[0:480,round(col/2):col,0:3],(line,column+15),2,cores[cor_atual],-1)
-            cv.circle(tela,(line,column+15),2,cores[cor_atual],-1)
+            cv.circle(frame_circle[0:480, round(col/2):col, 0:3],
+                      (line, column+15), 2, cores[cor_atual], -1)
+            tela = limpar(tela,'on' if startDrawing==1 else 'off')
+            
 
-            savePoint([line,column])
+            if key != -1:
+                if key == ord('d') and startDrawing==0:
+                    stopDrawing = 0
+                    startDrawing = 1
+                elif key == ord('s') and startDrawing==1:
+                    stopDrawing = 1
+                    startDrawing = 0
+            
+
+            if startDrawing == 1:
+                savePoint([line, column+15])
+            elif stopDrawing == 1:
+                stopDrawing = 0
+                pontos_preto.append(deque(maxlen=512))
+                blindex += 1
+                pontos_azul.append(deque(maxlen=512))
+                bindex += 1
+                pontos_vermelho.append(deque(maxlen=512))
+                rindex += 1
+                pontos_verde.append(deque(maxlen=512))
+                gindex += 1
+                pontos_amarelo.append(deque(maxlen=512))
+                yindex += 1
+            
+            tela = draw(tela,'on' if startDrawing==1 else 'off')
+            tela = cv.circle(tela, (line, column+15), 2, cores[cor_atual], -1)
+
+
                 
-                    
 
     # Se durante o periodo de configuração a tecla Ctrl for pressionada
-    if color_configured == 0 and cv.waitKey(1) == 115:
+    if color_configured == 0 and cv.waitKey(1) == ord("s"):
         # Fazer o histograma das cores da mão com base nos circulos definidos
         color_calibration(frame)
 
     if color_configured == 1:
-        if cv.waitKey(1) == 114:
+        if cv.waitKey(1) == ord("r"):
             color_configured = 0
         else:
             key = cv.waitKey(1)
             if key != -1:
-                if key == 48:
+                if key == ord("0"):
                     pontos_preto = [deque(maxlen=512)]
                     pontos_azul = [deque(maxlen=512)]
                     pontos_verde = [deque(maxlen=512)]
@@ -260,43 +346,44 @@ while True:
                     gindex = 0
                     rindex = 0
                     yindex = 0
-                    tela = numpy.zeros((480,320,3))+255
-                    tela = cv.rectangle(tela, (10,1), (52,50), (0,0,0), 2)
-                    tela = cv.rectangle(tela, (62,1), (104,50), cores[0], -1)
-                    tela = cv.rectangle(tela, (114,1), (156,50), cores[1], -1)
-                    tela = cv.rectangle(tela, (166,1), (208,50), cores[2], -1)
-                    tela = cv.rectangle(tela, (218,1), (260,50), cores[3], -1)
-                    tela = cv.rectangle(tela, (270,1), (312,50), cores[4], -1)
-                    cv.putText(tela, "CL", (20, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv.LINE_AA)
-                    cv.putText(tela, "0", (25, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv.LINE_AA)
-                    cv.putText(tela, "1", (77, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-                    cv.putText(tela, "2", (129, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-                    cv.putText(tela, "3", (181, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv.LINE_AA)
-                    cv.putText(tela, "4", (233, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (150,150,150), 2, cv.LINE_AA)
-                    cv.putText(tela, "5", (285, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (150,150,150), 2, cv.LINE_AA)
+                    startDrawing = 0
+                    stopDrawing = 0
+                    tela = limpar(tela,'off')
                 else:
-                    if key == 49:
+                    if key == ord("1"):
                         cor_atual = 0
                     else:
-                        if key == 50:
+                        if key == ord("2"):
                             cor_atual = 1
                         else:
-                            if key == 51:
+                            if key == ord("3"):
                                 cor_atual = 2
                             else:
-                                if key == 52:
+                                if key == ord("4"):
                                     cor_atual = 3
                                 else:
-                                    if key == 53:
+                                    if key == ord("5"):
                                         cor_atual = 4
-            
 
     if color_configured == 0:
         draw_hand_circle(frame_circle)
 
-    cv.imshow("Video", frame_circle)
-    draw(tela)
-    cv.imshow("Tela",tela)
+    
+    
+
+    # Concatenar as imagens (O cv.hconcat não funciona com matrizes de diferentes tamanhos)
+    frame_l, frame_c, frame_p = numpy.shape(frame_circle)
+    tela_l, tela_c, tela_p = numpy.shape(tela)
+    total_w = frame_c+tela_c
+    total_h = frame_l
+
+    # Criar a matriz de output que vai agrupar as duas imagens
+    output = numpy.ones((total_h, total_w, 3), dtype=numpy.uint8)
+
+    output[0:total_h, 0:frame_c, :] = frame_circle[:, :, 0:3]
+    output[0:total_h, frame_c:total_w, :] = tela[:, :, 0:3]
+
+    cv.imshow("Tela", output)
 
     if cv.waitKey(1) == 27:
         break
