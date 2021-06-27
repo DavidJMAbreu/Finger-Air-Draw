@@ -1,11 +1,8 @@
 import cv2 as cv
 import numpy
 from collections import deque
-from time import sleep
 
 
-# Load the video from first webcam in list
-webcam = cv.VideoCapture(0)
 
 # Project Variables
 global color_configured
@@ -244,147 +241,151 @@ def draw(Canvas, isDrawing):
     return Canvas
 
 
-if not webcam.isOpened:
-    print('--(!)Error opening video capture')
-    exit(0)
-while True:
+def main(): # Main function of the script
+    # Load the video from first webcam in list
+    webcam = cv.VideoCapture(0)
 
-    ret, frame = webcam.read()
-    if frame is None:
-        print('--(!) No captured frame -- Break!')
-        break
 
-    # Invert the video
-    frame = cv.flip(frame, 1)
+    if not webcam.isOpened:
+        print('--(!)Error opening video capture')
+        exit(0)
+    while True:
 
-    # Save a secondary frame to present the image
-    frame_circle = frame
+        ret, frame = webcam.read()
+        if frame is None:
+            print('--(!) No captured frame -- Break!')
+            break
 
-    if color_configured == 1:
-        # Check only a partial part of the frame (half of it)
-        [lin, col, pln] = numpy.shape(frame)
-        hand_frame = frame[0:480, round(col/2):col, 0:3]
+        # Invert the video
+        frame = cv.flip(frame, 1)
 
-        # Convert to hsv
-        mask = cv.cvtColor(hand_frame, cv.COLOR_BGR2HSV)
-        # Perform the skin color segmentation
-        mask = cv.inRange(mask, skinLower, skinHigher)
+        # Save a secondary frame to present the image
+        frame_circle = frame
 
-        # Morphology operations to enhance the algorithm
-        mask = cv.morphologyEx(mask, cv.MORPH_DILATE, numpy.ones(
-            (3, 3), dtype=numpy.uint8), iterations=4)
-        mask = cv.morphologyEx(mask, cv.MORPH_ERODE, numpy.ones(
-            (3, 3), dtype=numpy.uint8), iterations=2)
+        if color_configured == 1:
+            # Check only a partial part of the frame (half of it)
+            [lin, col, pln] = numpy.shape(frame)
+            hand_frame = frame[0:480, round(col/2):col, 0:3]
 
-        # Perform a median filter on the mask
-        medianFilter = cv.medianBlur(mask, 11)
+            # Convert to hsv
+            mask = cv.cvtColor(hand_frame, cv.COLOR_BGR2HSV)
+            # Perform the skin color segmentation
+            mask = cv.inRange(mask, skinLower, skinHigher)
 
-        # Find the contours
-        contours, hierarchy = cv.findContours(
-            medianFilter, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            # Morphology operations to enhance the algorithm
+            mask = cv.morphologyEx(mask, cv.MORPH_DILATE, numpy.ones(
+                (3, 3), dtype=numpy.uint8), iterations=4)
+            mask = cv.morphologyEx(mask, cv.MORPH_ERODE, numpy.ones(
+                (3, 3), dtype=numpy.uint8), iterations=2)
 
-        if contours != []:
-            # Detect the largest contour
-            largest = 0
-            max_area = 0
-            for contour in contours:
-                area = cv.contourArea(contour)
-                if (area > max_area):
-                    max_area = area
-                    largest = contour
+            # Perform a median filter on the mask
+            medianFilter = cv.medianBlur(mask, 11)
 
-            # Get cursor position
-            column, line = getPoint(largest)
+            # Find the contours
+            contours, hierarchy = cv.findContours(
+                medianFilter, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-            # Draw cursor on frame and drawing canvas for user orientation
-            cv.circle(frame_circle[0:480, round(col/2):col, 0:3],
-                      (line, column+15), 2, colors[current_color], -1)
-            Canvas = clean(Canvas, 'on' if startDrawing == 1 else 'off')
+            if contours != []:
+                # Detect the largest contour
+                largest = 0
+                max_area = 0
+                for contour in contours:
+                    area = cv.contourArea(contour)
+                    if (area > max_area):
+                        max_area = area
+                        largest = contour
 
-            if key != -1:
-                if key == ord('d') and startDrawing == 0:  # Draw
+                # Get cursor position
+                column, line = getPoint(largest)
+
+                # Draw cursor on frame and drawing canvas for user orientation
+                cv.circle(frame_circle[0:480, round(col/2):col, 0:3],
+                        (line, column+15), 2, colors[current_color], -1)
+                Canvas = clean(Canvas, 'on' if startDrawing == 1 else 'off')
+
+                if key != -1:
+                    if key == ord('d') and startDrawing == 0:  # Draw
+                        stopDrawing = 0
+                        startDrawing = 1
+                    elif key == ord('s') and startDrawing == 1:  # Stop drawing
+                        stopDrawing = 1
+                        startDrawing = 0
+
+                if startDrawing == 1:  # Save the new pixel
+                    savePoint([line, column+15])
+                elif stopDrawing == 1:  # Create new deque's to separate different draws
                     stopDrawing = 0
-                    startDrawing = 1
-                elif key == ord('s') and startDrawing == 1:  # Stop drawing
-                    stopDrawing = 1
-                    startDrawing = 0
+                    black_points.append(deque(maxlen=512))
+                    blindex += 1
+                    blue_points.append(deque(maxlen=512))
+                    bindex += 1
+                    red_points.append(deque(maxlen=512))
+                    rindex += 1
+                    green_points.append(deque(maxlen=512))
+                    gindex += 1
+                    yellow_points.append(deque(maxlen=512))
+                    yindex += 1
 
-            if startDrawing == 1:  # Save the new pixel
-                savePoint([line, column+15])
-            elif stopDrawing == 1:  # Create new deque's to separate different draws
-                stopDrawing = 0
-                black_points.append(deque(maxlen=512))
-                blindex += 1
-                blue_points.append(deque(maxlen=512))
-                bindex += 1
-                red_points.append(deque(maxlen=512))
-                rindex += 1
-                green_points.append(deque(maxlen=512))
-                gindex += 1
-                yellow_points.append(deque(maxlen=512))
-                yindex += 1
+                # Draw on the Canvas
+                Canvas = draw(Canvas, 'on' if startDrawing == 1 else 'off')
+                Canvas = cv.circle(Canvas, (line, column+15),2, colors[current_color], -1)
 
-            # Draw on the Canvas
-            Canvas = draw(Canvas, 'on' if startDrawing == 1 else 'off')
-            Canvas = cv.circle(Canvas, (line, column+15),
-                               2, colors[current_color], -1)
+        # Color calibration if "s" is pressed
+        if color_configured == 0 and cv.waitKey(1) == ord("s"):
+            color_calibration(frame)
 
-    # Color calibration if "s" is pressed
-    if color_configured == 0 and cv.waitKey(1) == ord("s"):
-        color_calibration(frame)
+        if color_configured == 1:
+            if cv.waitKey(1) == ord("r"):  # Reset and restart calibration
+                color_configured = 0
+            else:
+                key = cv.waitKey(1)
+                if key != -1:
+                    if key == ord("0"):  # Clear drawing canvas
+                        black_points = [deque(maxlen=512)]
+                        blue_points = [deque(maxlen=512)]
+                        green_points = [deque(maxlen=512)]
+                        red_points = [deque(maxlen=512)]
+                        yellow_points = [deque(maxlen=512)]
+                        blindex = 0
+                        bindex = 0
+                        gindex = 0
+                        rindex = 0
+                        yindex = 0
 
-    if color_configured == 1:
-        if cv.waitKey(1) == ord("r"):  # Reset and restart calibration
-            color_configured = 0
-        else:
-            key = cv.waitKey(1)
-            if key != -1:
-                if key == ord("0"):  # Clear drawing canvas
-                    black_points = [deque(maxlen=512)]
-                    blue_points = [deque(maxlen=512)]
-                    green_points = [deque(maxlen=512)]
-                    red_points = [deque(maxlen=512)]
-                    pontos_amarela = [deque(maxlen=512)]
+                        startDrawing = 0
+                        stopDrawing = 0
+                        Canvas = clean(Canvas, 'off')
+                    else:
+                        if key == ord("1"):  # Draw black
+                            current_color = 0
+                        elif key == ord("2"):  # Draw blue
+                            current_color = 1
+                        elif key == ord("3"):  # Draw green
+                            current_color = 2
+                        elif key == ord("4"):  # Draw red
+                            current_color = 3
+                        elif key == ord("5"):  # Draw yellow
+                            current_color = 4
 
-                    blindex = 0
-                    bindex = 0
-                    gindex = 0
-                    rindex = 0
-                    yindex = 0
-                    startDrawing = 0
-                    stopDrawing = 0
-                    Canvas = clean(Canvas, 'off')
-                else:
-                    if key == ord("1"):  # Draw black
-                        current_color = 0
-                    elif key == ord("2"):  # Draw blue
-                        current_color = 1
-                    elif key == ord("3"):  # Draw green
-                        current_color = 2
-                    elif key == ord("4"):  # Draw red
-                        current_color = 3
-                    elif key == ord("5"):  # Draw yellow
-                        current_color = 4
+        if color_configured == 0:
+            draw_hand_circle(frame_circle)  # Draw the circles on frame
 
-    if color_configured == 0:
-        draw_hand_circle(frame_circle)  # Draw the circles on frame
+        # Concat frame and canvas (cv.hconcat doesn't work on images with different sizes)
+        # Get image sizes
+        frame_lin, frame_col, _ = numpy.shape(frame_circle)
+        _, Canvas_col, _ = numpy.shape(Canvas)
+        total_width = frame_col+Canvas_col
+        total_height = frame_lin
 
-    # Concat frame and canvas (cv.hconcat doesn't work on images with different sizes)
-    # Get image sizes
-    frame_l, frame_c, frame_p = numpy.shape(frame_circle)
-    Canvas_l, Canvas_c, Canvas_p = numpy.shape(Canvas)
-    total_w = frame_c+Canvas_c
-    total_h = frame_l
+        # Create output matrix
+        canvas = numpy.ones((total_height, total_width, 3), dtype=numpy.uint8)
 
-    # Create output matrix
-    output = numpy.ones((total_h, total_w, 3), dtype=numpy.uint8)
+        # Concat images
+        canvas[0:total_height, 0:frame_col, :] = frame_circle[:, :, 0:3]
+        canvas[0:total_height, frame_col:total_width, :] = Canvas[:, :, 0:3]
 
-    # Concat images
-    output[0:total_h, 0:frame_c, :] = frame_circle[:, :, 0:3]
-    output[0:total_h, frame_c:total_w, :] = Canvas[:, :, 0:3]
+        cv.imshow("Air Canvas", canvas)  # Show the output
 
-    cv.imshow("Point&Draw", output)  # Show the output
-
-    # Key 27 == escape key
-    if cv.waitKey(1) == 27:
-        break
+        # Key 27 == escape key
+        if cv.waitKey(1) == 27:
+            break
