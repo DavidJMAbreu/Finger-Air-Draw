@@ -3,7 +3,6 @@ import numpy
 from collections import deque
 
 
-
 # Project Variables
 color_configured = 0
 skinLower = numpy.array([255, 255, 255])
@@ -268,15 +267,20 @@ while True:
         mask = cv.cvtColor(hand_frame, cv.COLOR_BGR2HSV)
         # Perform the skin color segmentation
         mask = cv.inRange(mask, skinLower, skinHigher)
+        cv.imshow("Mask", mask)
 
         # Morphology operations to enhance the algorithm
         mask = cv.morphologyEx(mask, cv.MORPH_DILATE, numpy.ones(
             (3, 3), dtype=numpy.uint8), iterations=4)
         mask = cv.morphologyEx(mask, cv.MORPH_ERODE, numpy.ones(
             (3, 3), dtype=numpy.uint8), iterations=2)
+        cv.imshow("Mask after open", mask)
 
         # Perform a median filter on the mask
         medianFilter = cv.medianBlur(mask, 11)
+        medianFilter = cv.medianBlur(medianFilter, 11)
+        medianFilter = cv.medianBlur(medianFilter, 11)
+        cv.imshow("median", medianFilter)
 
         # Find the contours
         contours, hierarchy = cv.findContours(
@@ -294,6 +298,8 @@ while True:
 
             # Get cursor position
             column, line = getPoint(largest)
+            cv.drawContours(frame_circle[0:480, round(
+                col/2):col, 0:3], largest, -1, (0, 255, 255), 2)
 
             # Draw cursor on frame and drawing canvas for user orientation
             cv.circle(frame_circle[0:480, round(col/2):col, 0:3],
@@ -325,7 +331,8 @@ while True:
 
             # Draw on the Canvas
             Canvas = draw(Canvas, 'on' if startDrawing == 1 else 'off')
-            Canvas = cv.circle(Canvas, (line, column+15),2, colors[current_color], -1)
+            Canvas = cv.circle(Canvas, (line, column+15),
+                               2, colors[current_color], -1)
 
     # Color calibration if "s" is pressed
     if color_configured == 0 and cv.waitKey(1) == ord("s"):
