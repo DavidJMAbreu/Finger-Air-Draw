@@ -298,8 +298,6 @@ while True:
 
             # Get cursor position
             column, line = getPoint(largest)
-            cv.drawContours(frame_circle[0:480, round(
-                col/2):col, 0:3], largest, -1, (0, 255, 255), 2)
 
             # Draw cursor on frame and drawing canvas for user orientation
             cv.circle(frame_circle[0:480, round(col/2):col, 0:3],
